@@ -22,14 +22,14 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.springframework.cloud.client.ServiceInstance;
 
 import com.alibaba.cloud.commons.lang.StringUtils;
 import com.alibaba.cloud.nacos.NacosServiceInstance;
 import com.alibaba.cloud.nacos.loadbalancer.NacosLoadBalancer;
+import com.alibaba.cloud.nacos.util.NacosServiceInstanceConverter;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.client.naming.core.Balancer;
-
-import org.springframework.cloud.client.ServiceInstance;
 
 /**
  * @author itmuch.com XuDaojie
@@ -59,15 +59,7 @@ public class NacosBalancer extends Balancer {
 			List<ServiceInstance> serviceInstances) {
 		Map<Instance, ServiceInstance> instanceMap = new HashMap<>();
 		List<Instance> nacosInstance = serviceInstances.stream().map(serviceInstance -> {
-			Map<String, String> metadata = serviceInstance.getMetadata();
-
-			// see
-			// com.alibaba.cloud.nacos.discovery.NacosServiceDiscovery.hostToServiceInstance()
-			Instance instance = new Instance();
-			instance.setIp(serviceInstance.getHost());
-			instance.setPort(serviceInstance.getPort());
-			instance.setWeight(Double.parseDouble(metadata.get("nacos.weight")));
-			instance.setHealthy(Boolean.parseBoolean(metadata.get("nacos.healthy")));
+			Instance instance = NacosServiceInstanceConverter.fromServiceInstance(serviceInstance);
 			instanceMap.put(instance, serviceInstance);
 			return instance;
 		}).collect(Collectors.toList());
