@@ -19,116 +19,118 @@ package com.alibaba.cloud.nacos.util;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.springframework.cloud.client.ServiceInstance;
-
 import com.alibaba.cloud.nacos.NacosServiceInstance;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+
+import org.springframework.cloud.client.ServiceInstance;
+
+
 
 /**
  * @author Karson
  */
-public class NacosServiceInstanceConverter {
+final public class NacosServiceInstanceConverter {
 
-    public static final String WEIGHT = "nacos.weight";
+		private static final String WEIGHT = "nacos.weight";
 
-    public static final String HEALTHY = "nacos.healthy";
+		private static final String HEALTHY = "nacos.healthy";
 
-    public static ServiceInstance fromInstanceAndServiceId(Instance instance, String serviceId) {
-        return ServiceInstanceBuilder.fromInstanceAndServiceId(instance, serviceId).build();
-    }
+		private NacosServiceInstanceConverter() { }
 
-    public static Instance fromServiceInstance(ServiceInstance instance) {
-        return InstanceServiceBuilder.fromServiceInstance(instance).build();
-    }
+		public static ServiceInstance fromInstanceAndServiceId(Instance instance, String serviceId) {
+				return ServiceInstanceBuilder.fromInstanceAndServiceId(instance, serviceId).build();
+		}
 
-    interface Builder<T> {
+		public static Instance fromServiceInstance(ServiceInstance instance) {
+				return InstanceServiceBuilder.fromServiceInstance(instance).build();
+		}
 
-        T build();
-    }
+		interface Builder<T> {
 
-    static class InstanceServiceBuilder implements Builder<Instance> {
+				T build();
+		}
 
-        private ServiceInstance serviceInstance;
+		final static class InstanceServiceBuilder implements Builder<Instance> {
 
-        private InstanceServiceBuilder() {
+				private ServiceInstance serviceInstance;
 
-        }
+				private InstanceServiceBuilder() {
 
-        private void setServiceInstance(ServiceInstance serviceInstance) {
-            this.serviceInstance = serviceInstance;
-        }
+				}
 
-        private static InstanceServiceBuilder fromServiceInstance(ServiceInstance instance) {
-            InstanceServiceBuilder instanceServiceBuilder = new InstanceServiceBuilder();
-            instanceServiceBuilder.setServiceInstance(instance);
-            return instanceServiceBuilder;
-        }
+				private void setServiceInstance(ServiceInstance serviceInstance) {
+						this.serviceInstance = serviceInstance;
+				}
 
-        @Override
-        public Instance build() {
-            Instance instance = new Instance();
-            Map<String, String> metadata = serviceInstance.getMetadata();
-            instance.setIp(serviceInstance.getHost());
-            instance.setPort(serviceInstance.getPort());
-            instance.setWeight(Double.parseDouble(metadata.get(WEIGHT)));
-            instance.setHealthy(Boolean.parseBoolean(metadata.get(HEALTHY)));
-            return instance;
-        }
-    }
+				private static InstanceServiceBuilder fromServiceInstance(ServiceInstance instance) {
+						InstanceServiceBuilder instanceServiceBuilder = new InstanceServiceBuilder();
+						instanceServiceBuilder.setServiceInstance(instance);
+						return instanceServiceBuilder;
+				}
 
+				@Override
+				public Instance build() {
+						Instance instance = new Instance();
+						Map<String, String> metadata = serviceInstance.getMetadata();
+						instance.setIp(serviceInstance.getHost());
+						instance.setPort(serviceInstance.getPort());
+						instance.setWeight(Double.parseDouble(metadata.get(WEIGHT)));
+						instance.setHealthy(Boolean.parseBoolean(metadata.get(HEALTHY)));
+						return instance;
+				}
+		}
 
-    static class ServiceInstanceBuilder implements Builder<ServiceInstance> {
+		final static class ServiceInstanceBuilder implements Builder<ServiceInstance> {
 
-        private Instance instance;
-        private String serviceId;
+				private Instance instance;
+				private String serviceId;
 
-        private ServiceInstanceBuilder() {
-        }
+				private ServiceInstanceBuilder() {
+				}
 
-        private static ServiceInstanceBuilder fromInstanceAndServiceId(Instance instance, String serviceId) {
-            ServiceInstanceBuilder nacosServiceInstanceBuilder = new ServiceInstanceBuilder();
-            nacosServiceInstanceBuilder.setInstance(instance);
-            nacosServiceInstanceBuilder.setServiceId(serviceId);
-            return nacosServiceInstanceBuilder;
-        }
+				private static ServiceInstanceBuilder fromInstanceAndServiceId(Instance instance, String serviceId) {
+						ServiceInstanceBuilder nacosServiceInstanceBuilder = new ServiceInstanceBuilder();
+						nacosServiceInstanceBuilder.setInstance(instance);
+						nacosServiceInstanceBuilder.setServiceId(serviceId);
+						return nacosServiceInstanceBuilder;
+				}
 
+				private void setInstance(Instance instance) {
+						this.instance = instance;
+				}
 
-        private void setInstance(Instance instance) {
-            this.instance = instance;
-        }
+				private void setServiceId(String serviceId) {
+						this.serviceId = serviceId;
+				}
 
-        private void setServiceId(String serviceId) {
-            this.serviceId = serviceId;
-        }
+				@Override
+				public ServiceInstance build() {
+						if (this.instance == null || !this.instance.isEnabled() || !this.instance.isHealthy()) {
+								return null;
+						}
+						NacosServiceInstance nacosServiceInstance = new NacosServiceInstance();
+						nacosServiceInstance.setHost(instance.getIp());
+						nacosServiceInstance.setPort(instance.getPort());
+						nacosServiceInstance.setServiceId(serviceId);
+						nacosServiceInstance.setInstanceId(instance.getInstanceId());
 
-        @Override
-        public ServiceInstance build() {
-            if (this.instance == null || !this.instance.isEnabled() || !this.instance.isHealthy()) {
-                return null;
-            }
-            NacosServiceInstance nacosServiceInstance = new NacosServiceInstance();
-            nacosServiceInstance.setHost(instance.getIp());
-            nacosServiceInstance.setPort(instance.getPort());
-            nacosServiceInstance.setServiceId(serviceId);
-            nacosServiceInstance.setInstanceId(instance.getInstanceId());
+						Map<String, String> metadata = new HashMap<>();
+						metadata.put("nacos.instanceId", instance.getInstanceId());
+						metadata.put(WEIGHT, instance.getWeight() + "");
+						metadata.put(HEALTHY, instance.isHealthy() + "");
+						metadata.put("nacos.cluster", instance.getClusterName() + "");
+						if (instance.getMetadata() != null) {
+								metadata.putAll(instance.getMetadata());
+						}
+						metadata.put("nacos.ephemeral", String.valueOf(instance.isEphemeral()));
+						nacosServiceInstance.setMetadata(metadata);
 
-            Map<String, String> metadata = new HashMap<>();
-            metadata.put("nacos.instanceId", instance.getInstanceId());
-            metadata.put(WEIGHT, instance.getWeight() + "");
-            metadata.put(HEALTHY, instance.isHealthy() + "");
-            metadata.put("nacos.cluster", instance.getClusterName() + "");
-            if (instance.getMetadata() != null) {
-                metadata.putAll(instance.getMetadata());
-            }
-            metadata.put("nacos.ephemeral", String.valueOf(instance.isEphemeral()));
-            nacosServiceInstance.setMetadata(metadata);
-
-            if (metadata.containsKey("secure")) {
-                boolean secure = Boolean.parseBoolean(metadata.get("secure"));
-                nacosServiceInstance.setSecure(secure);
-            }
-            return nacosServiceInstance;
-        }
-    }
+						if (metadata.containsKey("secure")) {
+								boolean secure = Boolean.parseBoolean(metadata.get("secure"));
+								nacosServiceInstance.setSecure(secure);
+						}
+						return nacosServiceInstance;
+				}
+		}
 
 }

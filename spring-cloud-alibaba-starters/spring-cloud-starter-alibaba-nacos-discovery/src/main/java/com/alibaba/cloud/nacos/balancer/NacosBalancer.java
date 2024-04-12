@@ -22,8 +22,6 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import org.springframework.cloud.client.ServiceInstance;
-
 import com.alibaba.cloud.commons.lang.StringUtils;
 import com.alibaba.cloud.nacos.NacosServiceInstance;
 import com.alibaba.cloud.nacos.loadbalancer.NacosLoadBalancer;
@@ -31,59 +29,62 @@ import com.alibaba.cloud.nacos.util.NacosServiceInstanceConverter;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.client.naming.core.Balancer;
 
+import org.springframework.cloud.client.ServiceInstance;
+
+
 /**
  * @author itmuch.com XuDaojie
  * @since 2021.1
  */
 public class NacosBalancer extends Balancer {
 
-	private static final String IPV4_REGEX = "((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}";
+		private static final String IPV4_REGEX = "((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}";
 
-	private static final String IPV6_KEY = "IPv6";
+		private static final String IPV6_KEY = "IPv6";
 
-	/**
-	 * Choose instance by weight.
-	 * @param instances Instance List
-	 * @return the chosen instance
-	 */
-	public static Instance getHostByRandomWeight2(List<Instance> instances) {
-		return getHostByRandomWeight(instances);
-	}
-
-	/**
-	 * Spring Cloud LoadBalancer Choose instance by weight.
-	 * @param serviceInstances Instance List
-	 * @return the chosen instance
-	 */
-	public static ServiceInstance getHostByRandomWeight3(
-			List<ServiceInstance> serviceInstances) {
-		Map<Instance, ServiceInstance> instanceMap = new HashMap<>();
-		List<Instance> nacosInstance = serviceInstances.stream().map(serviceInstance -> {
-			Instance instance = NacosServiceInstanceConverter.fromServiceInstance(serviceInstance);
-			instanceMap.put(instance, serviceInstance);
-			return instance;
-		}).collect(Collectors.toList());
-
-		Instance instance = getHostByRandomWeight2(nacosInstance);
-		NacosServiceInstance nacosServiceInstance = (NacosServiceInstance) instanceMap.get(instance);
-		// When local support IPv6 address stack, referred to use IPv6 address.
-		if (StringUtils.isNotEmpty(NacosLoadBalancer.ipv6)) {
-			convertIPv4ToIPv6(nacosServiceInstance);
+		/**
+		 * Choose instance by weight.
+		 *
+		 * @param instances Instance List
+		 * @return the chosen instance
+		 */
+		public static Instance getHostByRandomWeight2(List<Instance> instances) {
+				return getHostByRandomWeight(instances);
 		}
-		return nacosServiceInstance;
-	}
 
-	/**
-	 * There is two type Ip,using IPv6 should use IPv6 in metadata to replace IPv4 in IP
-	 * field.
-	 */
-	private static void convertIPv4ToIPv6(NacosServiceInstance instance) {
-		if (Pattern.matches(IPV4_REGEX, instance.getHost())) {
-			String ip = instance.getMetadata().get(IPV6_KEY);
-			if (StringUtils.isNotEmpty(ip)) {
-				instance.setHost(ip);
-			}
+		/**
+		 * Spring Cloud LoadBalancer Choose instance by weight.
+		 *
+		 * @param serviceInstances Instance List
+		 * @return the chosen instance
+		 */
+		public static ServiceInstance getHostByRandomWeight3(List<ServiceInstance> serviceInstances) {
+				Map<Instance, ServiceInstance> instanceMap = new HashMap<>();
+				List<Instance> nacosInstance = serviceInstances.stream().map(serviceInstance -> {
+						Instance instance = NacosServiceInstanceConverter.fromServiceInstance(serviceInstance);
+						instanceMap.put(instance, serviceInstance);
+						return instance;
+				}).collect(Collectors.toList());
+
+				Instance instance = getHostByRandomWeight2(nacosInstance);
+				NacosServiceInstance nacosServiceInstance = (NacosServiceInstance) instanceMap.get(instance);
+				// When local support IPv6 address stack, referred to use IPv6 address.
+				if (StringUtils.isNotEmpty(NacosLoadBalancer.ipv6)) {
+						convertIPv4ToIPv6(nacosServiceInstance);
+				}
+				return nacosServiceInstance;
 		}
-	}
+
+		/**
+		 * There is two type Ip,using IPv6 should use IPv6 in metadata to replace IPv4 in IP field.
+		 */
+		private static void convertIPv4ToIPv6(NacosServiceInstance instance) {
+				if (Pattern.matches(IPV4_REGEX, instance.getHost())) {
+						String ip = instance.getMetadata().get(IPV6_KEY);
+						if (StringUtils.isNotEmpty(ip)) {
+								instance.setHost(ip);
+						}
+				}
+		}
 
 }
